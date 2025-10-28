@@ -14,6 +14,7 @@ import { loggerMiddleware } from './logger'
 import AppContext from './context'
 import { createHttpTerminator, HttpTerminator } from 'http-terminator'
 import { PlcDatabase } from './db/types'
+import { Socket } from 'net'
 
 export * from './db'
 export * from './context'
@@ -51,6 +52,15 @@ export class PlcServer {
     app.use('/', createRouter(ctx))
     app.use(error.handler)
 
+    // Must be the last middleware, used to clean up websocket requests to unhandled routes
+    app.use((req, res, next): void => {
+      if (req.ws && req.ws.handled === false) {
+        req.ws.socket.destroy()
+        return res.sendStatus(404)
+      }
+      next()
+    })
+
     return new PlcServer({
       ctx,
       app,
@@ -59,6 +69,18 @@ export class PlcServer {
 
   async start(): Promise<http.Server> {
     const server = this.app.listen(this.ctx.port)
+
+    // Capture required objects for express routes to handle websocket upgrades later,
+    // per https://stackoverflow.com/a/69773286
+    server.on('upgrade', (req, socket, head) => {
+      // create a dummy response to pass the request into express
+      const res = new http.ServerResponse(req)
+      // assign socket and head to a new field in the request object
+      // optional **handled** field lets us know if there a route processed the websocket request, else we terminate it later on
+      req.ws = { socket, head, handled: false }
+      this.app(req, res)
+    })
+
     this.server = server
     this.terminator = createHttpTerminator({ server })
     await events.once(server, 'listening')

@@ -48,7 +48,8 @@
     "multiformats": "^9.6.4",
     "pg": "^8.9.0",
     "pino": "^8.11.0",
-    "pino-http": "^8.3.3"
+    "pino-http": "^8.3.3",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@types/pg": "^8.6.5",

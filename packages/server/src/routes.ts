@@ -1,5 +1,6 @@
 import { CID } from 'multiformats/cid'
 import express from 'express'
+import { WebSocketServer, WebSocket } from 'ws'
 import * as plc from '@did-plc/lib'
 import { ServerError } from './error'
 import { AppContext } from './context'
@@ -44,6 +45,27 @@ export const createRouter = (ctx: AppContext): express.Router => {
       res.write(line)
     }
     res.end()
+  })
+
+  // TODO: init elsewhere?
+  const wss = new WebSocketServer({
+    noServer: true,
+  })
+
+  // "Live tail" of ops over a websocket
+  router.get('/exportStream', async function (req, res) {
+    if (!req.headers.upgrade) {
+      throw new ServerError(426, 'upgrade required')
+    }
+    req.ws.handled = true
+    wss.handleUpgrade(
+      req,
+      req.ws.socket,
+      req.ws.head,
+      function (ws: WebSocket) {
+        ws.send('hello websocket')
+      },
+    )
   })
 
   // Get data for a DID document
