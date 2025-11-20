@@ -49,24 +49,3 @@ export const sequenceEvt = async (
 
   await dbTxn.db.insertInto('plc_seq').values(evt).execute()
 }
-
-export const invalidateEventsByType = async (
-  db: Database,
-  did: string,
-  types: string[],
-): Promise<void> => {
-  if (types.length < 1) return
-
-  let query = db.db
-    .updateTable('plc_seq')
-    .where(sql`event->>'did'`, '=', did)
-    .where('invalidated', '=', 0)
-
-  if (types.length === 1) {
-    query = query.where(sql`event->>'$type'`, '=', types[0])
-  } else if (types.length > 1) {
-    query = query.where(sql`event->>'$type'`, 'in', types)
-  }
-
-  await query.set({ invalidated: 1 }).execute()
-}

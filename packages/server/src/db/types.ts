@@ -47,7 +47,7 @@ export interface PlcSeq {
   id: GeneratedAlways<number>
   seq: number | null
   event: Record<string, unknown>
-  invalidated: Generated<number>
+  invalidated: Generated<number> // not currently used, always 0
   sequencedAt?: Date
 }
 
