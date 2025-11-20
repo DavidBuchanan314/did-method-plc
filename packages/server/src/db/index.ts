@@ -8,12 +8,16 @@ import * as migrations from '../migrations'
 import { DatabaseSchema, PlcDatabase } from './types'
 import MockDatabase from './mock'
 import { enforceOpsRateLimit } from '../constraints'
+import { Channels } from './channels'
+import { formatSeqPlcOp, sequenceEvt } from '../sequencer/events'
 
 export * from './mock'
 export * from './types'
 
 export class Database implements PlcDatabase {
   migrator: Migrator
+  channels?: Channels
+
   constructor(public db: Kysely<DatabaseSchema>, public schema?: string) {
     this.migrator = new Migrator({
       db,
@@ -55,7 +59,9 @@ export class Database implements PlcDatabase {
       dialect: new PostgresDialect({ pool }),
     })
 
-    return new Database(db, schema)
+    const database = new Database(db, schema)
+    database.channels = new Channels(database)
+    return database
   }
 
   static mock(): MockDatabase {
@@ -63,11 +69,29 @@ export class Database implements PlcDatabase {
   }
 
   async close(): Promise<void> {
+    if (this.channels) {
+      await this.channels.destroy()
+    }
     await this.db.destroy()
   }
 
   async healthCheck(): Promise<void> {
     await sql`select 1`.execute(this.db)
+  }
+
+  assertTransaction(): void {
+    if (!this.db.isTransaction) {
+      throw new Error('Transaction required')
+    }
+  }
+
+  async notify(
+    channelName: 'new_plc_event' | 'outgoing_plc_seq',
+  ): Promise<void> {
+    if (!this.channels) {
+      return
+    }
+    await this.channels[channelName].notify()
   }
 
   async migrateToOrThrow(migration: string) {
@@ -171,6 +195,11 @@ export class Database implements PlcDatabase {
           `Proposed prev does not match the most recent operation: ${mostRecent?.toString()}`,
         )
       }
+
+      // Sequence the operation
+      const seqEvt = formatSeqPlcOp(did, proposed, cid, false, proposedDate)
+      const txDb = new Database(tx, this.schema)
+      await sequenceEvt(txDb, seqEvt)
     })
   }
 

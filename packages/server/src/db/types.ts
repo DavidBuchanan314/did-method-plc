@@ -1,5 +1,5 @@
 import * as plc from '@did-plc/lib'
-import { Generated } from 'kysely'
+import { Generated, GeneratedAlways, Insertable, Selectable } from 'kysely'
 
 export interface PlcDatabase {
   close(): Promise<void>
@@ -41,8 +41,22 @@ export interface AdminLogsTable {
   createdAt: Generated<Date>
 }
 
+export const PLC_SEQ_SEQUENCE = 'plc_seq_sequence'
+
+export interface PlcSeq {
+  id: GeneratedAlways<number>
+  seq: number | null
+  event: Record<string, unknown>
+  invalidated: Generated<number>
+  sequencedAt?: Date
+}
+
+export type PlcSeqInsert = Insertable<PlcSeq>
+export type PlcSeqEntry = Selectable<PlcSeq>
+
 export interface DatabaseSchema {
   dids: DidsTable
   operations: OperationsTable
   admin_logs: AdminLogsTable
+  plc_seq: PlcSeq
 }
