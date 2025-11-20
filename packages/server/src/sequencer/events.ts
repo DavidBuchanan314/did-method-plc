@@ -9,7 +9,6 @@ export type PlcOperationEvent = {
   did: string
   operation: plc.CompatibleOpOrTombstone
   cid: string
-  nullified: boolean
   createdAt: string
 }
 
@@ -25,7 +24,6 @@ export const formatSeqPlcOp = (
   did: string,
   operation: plc.CompatibleOpOrTombstone,
   cid: CID,
-  nullified: boolean,
   createdAt: Date,
 ): PlcSeqInsert => {
   const event: PlcOperationEvent = {
@@ -33,7 +31,6 @@ export const formatSeqPlcOp = (
     did,
     operation,
     cid: cid.toString(),
-    nullified,
     createdAt: createdAt.toISOString(),
   }
 

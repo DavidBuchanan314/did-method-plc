@@ -197,7 +197,7 @@ export class Database implements PlcDatabase {
       }
 
       // Sequence the operation
-      const seqEvt = formatSeqPlcOp(did, proposed, cid, false, proposedDate)
+      const seqEvt = formatSeqPlcOp(did, proposed, cid, proposedDate)
       const txDb = new Database(tx, this.schema)
       await sequenceEvt(txDb, seqEvt)
     })
