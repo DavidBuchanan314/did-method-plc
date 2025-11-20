@@ -1,6 +1,6 @@
 import { sql } from 'kysely'
 import { EventEmitter } from 'events'
-import { Client as PgClient } from 'pg'
+import { PoolClient } from 'pg'
 import Database from './index'
 
 export class Channels {
@@ -22,7 +22,7 @@ export class Channels {
 
 export class DbChannel {
   listener = new EventEmitter()
-  client: PgClient | null = null
+  client: PoolClient | null = null
   destroyed = false
 
   constructor(public db: Database, public name: string) {
@@ -32,8 +32,10 @@ export class DbChannel {
   private async setup(): Promise<void> {
     try {
       // Get a dedicated client for LISTEN
-      const pool = (this.db.db as any).getExecutor().adapter.pool
-      this.client = await pool.connect()
+      if (!this.db.pool) {
+        throw new Error('Database pool not available')
+      }
+      this.client = await this.db.pool.connect()
 
       if (!this.client) {
         throw new Error('Failed to get database client')
@@ -72,8 +74,8 @@ export class DbChannel {
     if (this.client) {
       try {
         await this.client.query(`UNLISTEN "${this.name}"`)
-        // For pg pool clients, we need to call release to return to pool
-        ;(this.client as any).release?.()
+        // Return the client to the pool
+        this.client.release()
       } catch (err) {
         console.error(`Error destroying channel ${this.name}:`, err)
       }

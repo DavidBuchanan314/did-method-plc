@@ -17,6 +17,7 @@ export * from './types'
 export class Database implements PlcDatabase {
   migrator: Migrator
   channels?: Channels
+  pool?: PgPool
 
   constructor(public db: Kysely<DatabaseSchema>, public schema?: string) {
     this.migrator = new Migrator({
@@ -60,6 +61,7 @@ export class Database implements PlcDatabase {
     })
 
     const database = new Database(db, schema)
+    database.pool = pool
     database.channels = new Channels(database)
     return database
   }
