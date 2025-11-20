@@ -15,9 +15,12 @@ import AppContext from './context'
 import { createHttpTerminator, HttpTerminator } from 'http-terminator'
 import { PlcDatabase } from './db/types'
 import { Socket } from 'net'
+import Database from './db'
+import { Sequencer } from './sequencer'
 
 export * from './db'
 export * from './context'
+export * from './sequencer'
 
 export class PlcServer {
   public ctx: AppContext
@@ -42,8 +45,12 @@ export class PlcServer {
 
     app.use(loggerMiddleware)
 
+    // Initialize sequencer
+    const sequencer = new Sequencer(opts.db as Database)
+
     const ctx = new AppContext({
       db: opts.db,
+      sequencer,
       version: opts.version || '0.0.0',
       port: opts.port,
       adminSecret: opts.adminSecret,
@@ -68,6 +75,9 @@ export class PlcServer {
   }
 
   async start(): Promise<http.Server> {
+    // Start sequencer
+    await this.ctx.sequencer.start()
+
     const server = this.app.listen(this.ctx.port)
 
     // Capture required objects for express routes to handle websocket upgrades later,
@@ -88,6 +98,7 @@ export class PlcServer {
   }
 
   async destroy() {
+    this.ctx.sequencer.destroy()
     await this.terminator?.terminate()
     await this.ctx.db.close()
   }
