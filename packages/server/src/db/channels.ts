@@ -62,6 +62,7 @@ export class DbChannel {
         setTimeout(() => this.setup(), 5000)
       }
     }
+    console.log(`listening successfully on ${this.name}`)
   }
 
   async notify(): Promise<void> {

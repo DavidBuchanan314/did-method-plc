@@ -30,7 +30,7 @@ export class SequencerLeader {
 
       // Poll periodically as backup
       while (!signal.aborted) {
-        await this.sequenceOutgoing()
+        //await this.sequenceOutgoing() // XXX: UNCOMMENT BEFORE MERGE
         await wait(5000)
       }
     })
