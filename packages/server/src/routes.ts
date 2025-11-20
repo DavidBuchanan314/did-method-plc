@@ -84,12 +84,15 @@ export const createRouter = (ctx: AppContext): express.Router => {
         })
 
         try {
-          for await (const evt of outbox.events(cursor, abortController.signal)) {
+          for await (const evt of outbox.events(
+            cursor,
+            abortController.signal,
+          )) {
             if (ws.readyState !== WebSocket.OPEN) {
               break
             }
             // Send event as JSON line
-            ws.send(JSON.stringify(evt))
+            ws.send(JSON.stringify(evt) + '\n')
           }
         } catch (err) {
           if (!abortController.signal.aborted) {
