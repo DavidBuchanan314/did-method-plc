@@ -19,9 +19,7 @@ export class SequencerLeader {
         throw new Error('Database channels not initialized')
       }
 
-      const { listener } = this.db.channels.new_plc_event
-
-      listener.on('message', () => {
+      this.db.channels.new_plc_event.on('message', () => {
         console.log(new Date(), 'received new_plc_event')
         if (!this.destroyed) {
           this.sequenceOutgoing()

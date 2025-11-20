@@ -34,7 +34,7 @@ export class Sequencer
       throw new Error('Database channels not initialized')
     }
 
-    this.db.channels.outgoing_plc_seq.listener.on('message', () => {
+    this.db.channels.outgoing_plc_seq.on('message', () => {
       console.log(new Date(), 'received outgoing_plc_seq')
       if (!this.destroyed) {
         if (!this.polling) {
@@ -101,11 +101,13 @@ export class Sequencer
 
     const rows = await builder.execute()
 
-    return rows.map((row) => ({
-      seq: row.seq!,
-      sequencedAt: row.sequencedAt!,
-      event: row.event as PlcEvent,
-    }))
+    return rows
+      .filter((row) => row.seq !== null && row.sequencedAt !== null)
+      .map((row) => ({
+        seq: row.seq as number,
+        sequencedAt: row.sequencedAt as Date,
+        event: row.event as PlcEvent,
+      }))
   }
 
   async pollDb(): Promise<void> {

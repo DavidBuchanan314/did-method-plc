@@ -41,6 +41,11 @@ const run = async () => {
       await pgDb.migrateToLatestOrThrow()
       db = pgDb
 
+      // Start listening to database channels
+      console.log('[*] Starting database channel listener...')
+      await pgDb.startListeningToChannels()
+      console.log('[*] Database channel listener started')
+
       // Start sequencer leader
       console.log('[*] Starting sequencer leader...')
       leader = new SequencerLeader(pgDb)

@@ -1,86 +1,17 @@
-import { sql } from 'kysely'
-import { EventEmitter } from 'events'
-import { PoolClient } from 'pg'
-import Database from './index'
+import EventEmitter from 'events'
 
-export class Channels {
-  new_plc_event: DbChannel
-  outgoing_plc_seq: DbChannel
+export type ChannelEmitter = EventEmitter
 
-  constructor(public db: Database) {
-    this.new_plc_event = new DbChannel(db, 'new_plc_event')
-    this.outgoing_plc_seq = new DbChannel(db, 'outgoing_plc_seq')
-  }
-
-  async destroy(): Promise<void> {
-    await Promise.all([
-      this.new_plc_event.destroy(),
-      this.outgoing_plc_seq.destroy(),
-    ])
-  }
+export type Channels = {
+  new_plc_event: ChannelEmitter
+  outgoing_plc_seq: ChannelEmitter
 }
 
-export class DbChannel {
-  listener = new EventEmitter()
-  client: PoolClient | null = null
-  destroyed = false
+export type ChannelEvt = keyof Channels
 
-  constructor(public db: Database, public name: string) {
-    this.setup()
-  }
-
-  private async setup(): Promise<void> {
-    try {
-      // Get a dedicated client for LISTEN
-      if (!this.db.pool) {
-        throw new Error('Database pool not available')
-      }
-      this.client = await this.db.pool.connect()
-
-      if (!this.client) {
-        throw new Error('Failed to get database client')
-      }
-
-      this.client.on('notification', (msg) => {
-        if (msg.channel === this.name) {
-          this.listener.emit('message')
-        }
-      })
-
-      this.client.on('error', (err) => {
-        console.error(`Database channel error (${this.name}):`, err)
-        if (!this.destroyed) {
-          // Attempt to reconnect after a delay
-          setTimeout(() => this.setup(), 5000)
-        }
-      })
-
-      await this.client.query(`LISTEN "${this.name}"`)
-    } catch (err) {
-      console.error(`Failed to setup channel ${this.name}:`, err)
-      if (!this.destroyed) {
-        setTimeout(() => this.setup(), 5000)
-      }
-    }
-    console.log(`listening successfully on ${this.name}`)
-  }
-
-  async notify(): Promise<void> {
-    await sql`NOTIFY ${sql.ref(this.name)}`.execute(this.db.db)
-  }
-
-  async destroy(): Promise<void> {
-    this.destroyed = true
-    this.listener.removeAllListeners()
-    if (this.client) {
-      try {
-        await this.client.query(`UNLISTEN "${this.name}"`)
-        // Return the client to the pool
-        this.client.release()
-      } catch (err) {
-        console.error(`Error destroying channel ${this.name}:`, err)
-      }
-      this.client = null
-    }
+export function createChannels(): Channels {
+  return {
+    new_plc_event: new EventEmitter(),
+    outgoing_plc_seq: new EventEmitter(),
   }
 }
