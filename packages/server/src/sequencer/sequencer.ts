@@ -35,6 +35,7 @@ export class Sequencer
     }
 
     this.db.channels.outgoing_plc_seq.listener.on('message', () => {
+      console.log(new Date(), 'received outgoing_plc_seq')
       if (!this.destroyed) {
         if (!this.polling) {
           this.pollDb()
@@ -102,8 +103,8 @@ export class Sequencer
 
     return rows.map((row) => ({
       seq: row.seq!,
-      time: row.sequencedAt!,
-      evt: row.event as PlcEvent,
+      sequencedAt: row.sequencedAt!,
+      event: row.event as PlcEvent,
     }))
   }
 

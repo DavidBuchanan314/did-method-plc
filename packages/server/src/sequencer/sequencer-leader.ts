@@ -22,6 +22,7 @@ export class SequencerLeader {
       const { listener } = this.db.channels.new_plc_event
 
       listener.on('message', () => {
+        console.log(new Date(), 'received new_plc_event')
         if (!this.destroyed) {
           this.sequenceOutgoing()
         }
@@ -52,11 +53,15 @@ export class SequencerLeader {
           .orderBy('id', 'asc')
           .as('update'),
       )
-      .set({ seq: sql`update_seq::bigint` })
+      .set({
+        seq: sql`update_seq::bigint`,
+        sequencedAt: sql`now()`,
+      })
       .whereRef('id', '=', 'update_id')
       .execute()
 
     // Notify consumers
+    console.log(new Date(), 'sending outgoing_plc_seq')
     await this.db.notify('outgoing_plc_seq')
   }
 

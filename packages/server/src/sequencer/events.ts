@@ -16,8 +16,8 @@ export type PlcEvent = PlcOperationEvent
 
 export type SeqEvt = {
   seq: number
-  time: Date
-  evt: PlcEvent
+  sequencedAt: Date
+  event: PlcEvent
 }
 
 export const formatSeqPlcOp = (
@@ -45,6 +45,7 @@ export const sequenceEvt = async (
   evt: PlcSeqInsert,
 ): Promise<void> => {
   dbTxn.assertTransaction()
+  console.log(new Date(), 'sending new_plc_event')
   await dbTxn.notify('new_plc_event')
 
   await dbTxn.db.insertInto('plc_seq').values(evt).execute()
