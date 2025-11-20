@@ -5,10 +5,10 @@ import { PlcSeqInsert } from '../db/types'
 import { sql } from 'kysely'
 
 export type PlcOperationEvent = {
-  $type: 'plc_operation'
+  $type: 'indexed_op'
   did: string
   operation: plc.CompatibleOpOrTombstone
-  cid: string
+  cid: string // this is redundant info, but allows consumers to double-check
   createdAt: string
 }
 
@@ -27,7 +27,7 @@ export const formatSeqPlcOp = (
   createdAt: Date,
 ): PlcSeqInsert => {
   const event: PlcOperationEvent = {
-    $type: 'plc_operation',
+    $type: 'indexed_op',
     did,
     operation,
     cid: cid.toString(),
