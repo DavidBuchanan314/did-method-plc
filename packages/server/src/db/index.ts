@@ -15,9 +15,6 @@ export * from './types'
 
 export class Database implements PlcDatabase {
   migrator: Migrator
-  pool?: PgPool
-  destroyed = false
-
   constructor(public db: Kysely<DatabaseSchema>, public schema?: string) {
     this.migrator = new Migrator({
       db,
@@ -59,9 +56,7 @@ export class Database implements PlcDatabase {
       dialect: new PostgresDialect({ pool }),
     })
 
-    const database = new Database(db, schema)
-    database.pool = pool
-    return database
+    return new Database(db, schema)
   }
 
   static mock(): MockDatabase {
@@ -69,8 +64,6 @@ export class Database implements PlcDatabase {
   }
 
   async close(): Promise<void> {
-    if (this.destroyed) return
-    this.destroyed = true
     await this.db.destroy()
   }
 
