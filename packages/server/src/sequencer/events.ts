@@ -9,6 +9,7 @@ export type PlcOperationEvent = {
   operation: plc.CompatibleOpOrTombstone
   cid: string // this is redundant info, but allows consumers to double-check
   createdAt: string
+  // Note: "nullified" field is NOT here (it is always false for new events, and keeping it synced would be hard)
 }
 
 export type PlcEvent = PlcOperationEvent
@@ -47,8 +48,5 @@ export const sequenceEvt = async (
   evt: PlcSeqInsert,
 ): Promise<void> => {
   dbTxn.assertTransaction()
-  console.log(new Date(), 'sending new_plc_event')
-  await dbTxn.notify('new_plc_event')
-
   await dbTxn.db.insertInto('plc_seq').values(evt).execute()
 }

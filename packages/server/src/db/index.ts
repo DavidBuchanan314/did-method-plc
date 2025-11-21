@@ -263,10 +263,7 @@ export class Database implements PlcDatabase {
 
       // Submit the operation for sequencing
       const seqEvt = formatSeqPlcOp(did, proposed, cid, proposedDate)
-      const txDb = new Database(tx, this.schema)
-      txDb.channels = this.channels
-      txDb.pool = this.pool
-      await sequenceEvt(txDb, seqEvt)
+      await tx.insertInto('plc_seq').values(seqEvt).execute()
     })
   }
 

@@ -19,17 +19,10 @@ export class SequencerLeader {
         throw new Error('Database channels not initialized')
       }
 
-      this.db.channels.new_plc_event.on('message', () => {
-        console.log(new Date(), 'received new_plc_event')
-        if (!this.destroyed) {
-          this.sequenceOutgoing()
-        }
-      })
-
-      // Poll periodically as backup
-      while (!signal.aborted) {
-        //await this.sequenceOutgoing() // XXX: UNCOMMENT BEFORE MERGE
-        await wait(5000)
+      // Poll frequently
+      while (!(signal.aborted || this.destroyed)) {
+        await this.sequenceOutgoing()
+        await wait(50)
       }
     })
   }
