@@ -130,12 +130,6 @@ export class Database implements PlcDatabase {
     await sql`select 1`.execute(this.db)
   }
 
-  assertTransaction(): void {
-    if (!this.db.isTransaction) {
-      throw new Error('Transaction required')
-    }
-  }
-
   async notify(evt: ChannelEvt): Promise<void> {
     if (!this.channels) {
       return
@@ -263,7 +257,7 @@ export class Database implements PlcDatabase {
 
       // Submit the operation for sequencing
       const seqEvt = formatSeqPlcOp(did, proposed, cid, proposedDate)
-      await tx.insertInto('plc_seq').values(seqEvt).execute()
+      await sequenceEvt(tx, seqEvt)
     })
   }
 

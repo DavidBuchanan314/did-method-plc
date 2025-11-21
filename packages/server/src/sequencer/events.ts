@@ -1,8 +1,7 @@
-import Database from '../db'
 import * as plc from '@did-plc/lib'
 import { CID } from 'multiformats/cid'
-import { PlcSeqInsert } from '../db/types'
-import { sql } from 'kysely'
+import { DatabaseSchema, PlcSeqInsert } from '../db/types'
+import { Kysely, sql } from 'kysely'
 
 export type PlcOperationEvent = {
   did: string
@@ -44,9 +43,11 @@ export const formatSeqPlcOp = (
 }
 
 export const sequenceEvt = async (
-  dbTxn: Database,
+  dbTxn: Kysely<DatabaseSchema>,
   evt: PlcSeqInsert,
 ): Promise<void> => {
-  dbTxn.assertTransaction()
-  await dbTxn.db.insertInto('plc_seq').values(evt).execute()
+  if (!dbTxn.isTransaction) {
+    throw new Error('Transaction required')
+  }
+  await dbTxn.insertInto('plc_seq').values(evt).execute()
 }
