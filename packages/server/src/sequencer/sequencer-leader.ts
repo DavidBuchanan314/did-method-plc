@@ -15,10 +15,6 @@ export class SequencerLeader {
 
   async run(): Promise<{ ran: boolean }> {
     return this.leader.run(async ({ signal }) => {
-      if (!this.db.channels) {
-        throw new Error('Database channels not initialized')
-      }
-
       // Poll frequently
       while (!(signal.aborted || this.destroyed)) {
         await this.sequenceOutgoing()

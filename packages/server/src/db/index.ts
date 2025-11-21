@@ -1,5 +1,5 @@
 import { Kysely, Migrator, PostgresDialect, sql } from 'kysely'
-import { Pool as PgPool, Client as PgClient, types as pgTypes } from 'pg'
+import { Pool as PgPool, types as pgTypes } from 'pg'
 import { CID } from 'multiformats/cid'
 import { cidForCbor } from '@atproto/common'
 import * as plc from '@did-plc/lib'
@@ -8,7 +8,6 @@ import * as migrations from '../migrations'
 import { DatabaseSchema, PlcDatabase } from './types'
 import MockDatabase from './mock'
 import { enforceOpsRateLimit } from '../constraints'
-import { Channels, ChannelEvt, createChannels } from './channels'
 import { formatSeqPlcOp, sequenceEvt } from '../sequencer/events'
 
 export * from './mock'
@@ -16,9 +15,7 @@ export * from './types'
 
 export class Database implements PlcDatabase {
   migrator: Migrator
-  channels?: Channels
   pool?: PgPool
-  private channelClient: PgClient | null = null
   destroyed = false
 
   constructor(public db: Kysely<DatabaseSchema>, public schema?: string) {
@@ -64,7 +61,6 @@ export class Database implements PlcDatabase {
 
     const database = new Database(db, schema)
     database.pool = pool
-    database.channels = createChannels()
     return database
   }
 
@@ -72,85 +68,14 @@ export class Database implements PlcDatabase {
     return new MockDatabase()
   }
 
-  async startListeningToChannels(): Promise<void> {
-    if (!this.pool) return
-    if (this.channelClient) return
-    if (!this.channels) return
-
-    const url = (this.pool as any).options?.connectionString
-    if (!url) {
-      throw new Error('Cannot start listening: no connection URL available')
-    }
-
-    this.channelClient = new PgClient(url)
-    await this.channelClient.connect()
-
-    const schemaChannel = this.getSchemaChannel()
-    await this.channelClient.query(`LISTEN ${schemaChannel}`)
-
-    this.channelClient.on('notification', (msg) => {
-      if (!this.channels) return
-      const channelName = msg.payload as ChannelEvt | null
-      const channel = channelName ? this.channels[channelName] : null
-      if (channel) {
-        channel.emit('message')
-      }
-    })
-
-    this.channelClient.on('error', (err) => {
-      console.error('postgres listener errored, reconnecting', err)
-      this.channelClient?.removeAllListeners()
-      this.channelClient = null
-      // Attempt to reconnect
-      if (!this.destroyed) {
-        this.startListeningToChannels()
-      }
-    })
-  }
-
-  private getSchemaChannel(): string {
-    const CHANNEL_NAME = 'plc_db_channel'
-    if (this.schema) {
-      return this.schema + '_' + CHANNEL_NAME
-    }
-    return CHANNEL_NAME
-  }
-
   async close(): Promise<void> {
     if (this.destroyed) return
     this.destroyed = true
-    if (this.channelClient) {
-      await this.channelClient.end()
-      this.channelClient = null
-    }
     await this.db.destroy()
   }
 
   async healthCheck(): Promise<void> {
     await sql`select 1`.execute(this.db)
-  }
-
-  async notify(evt: ChannelEvt): Promise<void> {
-    if (!this.channels) {
-      return
-    }
-    await this.sendChannelEvt(evt)
-  }
-
-  private async sendChannelEvt(evt: ChannelEvt): Promise<void> {
-    if (this.pool) {
-      // PostgreSQL: use NOTIFY with payload
-      const schemaChannel = this.getSchemaChannel()
-      await sql`NOTIFY ${sql.ref(schemaChannel)}, ${sql.literal(evt)}`.execute(
-        this.db,
-      )
-    } else {
-      // In-memory/testing: emit directly on the event emitter
-      const emitter = this.channels?.[evt]
-      if (emitter) {
-        emitter.emit('message')
-      }
-    }
   }
 
   async migrateToOrThrow(migration: string) {
