@@ -50,10 +50,6 @@ export class SequencerLeader {
       })
       .whereRef('id', '=', 'update_id')
       .execute()
-
-    // Notify consumers
-    console.log(new Date(), 'sending outgoing_plc_seq')
-    await this.db.notify('outgoing_plc_seq')
   }
 
   destroy(): void {

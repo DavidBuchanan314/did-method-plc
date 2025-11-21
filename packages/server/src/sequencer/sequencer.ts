@@ -16,9 +16,9 @@ export class Sequencer
   implements SequencerEmitter
 {
   polling = false
-  queued = false
   lastSeen = 0
   destroyed = false
+  pollInterval: NodeJS.Timeout | null = null
 
   constructor(public db: Database) {
     super()
@@ -30,20 +30,12 @@ export class Sequencer
       this.lastSeen = curr.seq ?? 0
     }
 
-    if (!this.db.channels) {
-      throw new Error('Database channels not initialized')
-    }
-
-    this.db.channels.outgoing_plc_seq.on('message', () => {
-      console.log(new Date(), 'received outgoing_plc_seq')
-      if (!this.destroyed) {
-        if (!this.polling) {
-          this.pollDb()
-        } else {
-          this.queued = true
-        }
+    // Poll for new seq events frequently
+    this.pollInterval = setInterval(() => {
+      if (!this.destroyed && !this.polling) {
+        this.pollDb()
       }
-    })
+    }, 50)
   }
 
   async curr(): Promise<PlcSeqEntry | null> {
@@ -119,7 +111,6 @@ export class Sequencer
         limit: 1000,
       })
       if (evts.length > 0) {
-        this.queued = true
         this.emit('events', evts)
         this.lastSeen = evts.at(-1)?.seq ?? this.lastSeen
       }
@@ -127,15 +118,15 @@ export class Sequencer
       console.error('Sequencer failed to poll', err)
     } finally {
       this.polling = false
-      if (this.queued) {
-        this.queued = false
-        this.pollDb()
-      }
     }
   }
 
   destroy(): void {
     this.destroyed = true
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval)
+      this.pollInterval = null
+    }
     super.removeAllListeners()
   }
 }
