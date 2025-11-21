@@ -387,7 +387,7 @@ describe('PLC server', () => {
   })
 
   it('healthcheck fails when database is unavailable.', async () => {
-    await db.db.destroy()
+    await db.close()
     let error: PlcClientError
     try {
       await client.health()

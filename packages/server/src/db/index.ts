@@ -8,6 +8,7 @@ import * as migrations from '../migrations'
 import { DatabaseSchema, PlcDatabase } from './types'
 import MockDatabase from './mock'
 import { enforceOpsRateLimit } from '../constraints'
+import { formatSeqPlcOp, sequenceEvt } from '../sequencer/events'
 
 export * from './mock'
 export * from './types'
@@ -171,6 +172,10 @@ export class Database implements PlcDatabase {
           `Proposed prev does not match the most recent operation: ${mostRecent?.toString()}`,
         )
       }
+
+      // Submit the operation for sequencing
+      const seqEvt = formatSeqPlcOp(did, proposed, cid, proposedDate)
+      await sequenceEvt(tx, seqEvt)
     })
   }
 

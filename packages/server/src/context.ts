@@ -1,9 +1,11 @@
 import { PlcDatabase } from './db'
+import { Sequencer } from './sequencer'
 
 export class AppContext {
   constructor(
     private opts: {
       db: PlcDatabase
+      sequencer: Sequencer
       version: string
       port?: number
       adminSecret?: string
@@ -12,6 +14,10 @@ export class AppContext {
 
   get db() {
     return this.opts.db
+  }
+
+  get sequencer() {
+    return this.opts.sequencer
   }
 
   get version() {
