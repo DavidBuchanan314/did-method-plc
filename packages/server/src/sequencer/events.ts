@@ -5,7 +5,6 @@ import { PlcSeqInsert } from '../db/types'
 import { sql } from 'kysely'
 
 export type PlcOperationEvent = {
-  $type: 'indexed_op'
   did: string
   operation: plc.CompatibleOpOrTombstone
   cid: string // this is redundant info, but allows consumers to double-check
@@ -14,9 +13,12 @@ export type PlcOperationEvent = {
 
 export type PlcEvent = PlcOperationEvent
 
+export type EventType = 'indexed_op' // this may later be a union with more types
+
 export type SeqEvt = {
   seq: number
   sequencedAt: Date
+  type: EventType
   event: PlcEvent
 }
 
@@ -27,7 +29,6 @@ export const formatSeqPlcOp = (
   createdAt: Date,
 ): PlcSeqInsert => {
   const event: PlcOperationEvent = {
-    $type: 'indexed_op',
     did,
     operation,
     cid: cid.toString(),
@@ -35,6 +36,7 @@ export const formatSeqPlcOp = (
   }
 
   return {
+    type: 'indexed_op',
     event,
     invalidated: 0,
   }

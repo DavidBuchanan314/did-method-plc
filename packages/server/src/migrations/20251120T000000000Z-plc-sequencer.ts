@@ -9,6 +9,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .createTable('plc_seq')
     .addColumn('id', 'bigserial', (col) => col.primaryKey())
     .addColumn('seq', 'bigint')
+    .addColumn('type', 'varchar', (col) => col.notNull())
     .addColumn('event', 'jsonb', (col) => col.notNull())
     .addColumn('invalidated', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('sequencedAt', 'timestamptz')

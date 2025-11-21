@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events'
 import Database from '../db'
 import { PlcSeqEntry } from '../db/types'
-import { PlcEvent, SeqEvt } from './events'
+import { PlcEvent, EventType, SeqEvt } from './events'
 import { sql } from 'kysely'
 
 export interface SequencerEmitter {
@@ -106,6 +106,7 @@ export class Sequencer
       .map((row) => ({
         seq: row.seq as number,
         sequencedAt: row.sequencedAt as Date,
+        type: row.type as EventType,
         event: row.event as PlcEvent,
       }))
   }

@@ -46,6 +46,7 @@ export const PLC_SEQ_SEQUENCE = 'plc_seq_sequence'
 export interface PlcSeq {
   id: GeneratedAlways<number>
   seq: number | null
+  type: string
   event: Record<string, unknown>
   invalidated: Generated<number> // not currently used, always 0
   sequencedAt?: Date
