@@ -16,7 +16,7 @@ import { createHttpTerminator, HttpTerminator } from 'http-terminator'
 import { PlcDatabase } from './db/types'
 import { Socket } from 'net'
 import Database from './db'
-import { Sequencer } from './sequencer'
+import { Sequencer, SequencerOptions } from './sequencer'
 
 export * from './db'
 export * from './context'
@@ -38,6 +38,7 @@ export class PlcServer {
     port?: number
     version?: string
     adminSecret?: string
+    sequencer?: SequencerOptions
   }): PlcServer {
     const app = express()
     app.use(express.json({ limit: '100kb' }))
@@ -46,7 +47,7 @@ export class PlcServer {
     app.use(loggerMiddleware)
 
     // Initialize sequencer
-    const sequencer = new Sequencer(opts.db as Database)
+    const sequencer = new Sequencer(opts.db as Database, opts.sequencer)
 
     const ctx = new AppContext({
       db: opts.db,

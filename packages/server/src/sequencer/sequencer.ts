@@ -12,6 +12,10 @@ export interface SequencerEmitter {
   setMaxListeners(n: number): this
 }
 
+export type SequencerOptions = {
+  pollIntervalMs?: number
+}
+
 export class Sequencer
   extends (EventEmitter as new () => SequencerEmitter)
   implements SequencerEmitter
@@ -20,11 +24,13 @@ export class Sequencer
   lastSeen = 0
   destroyed = false
   pollInterval: NodeJS.Timeout | null = null
+  pollIntervalMs: number
 
-  constructor(public db: Database) {
+  constructor(public db: Database, opts: SequencerOptions = {}) {
     super()
     // note: this does not err when surpassed, just prints a warning to stderr
     this.setMaxListeners(100)
+    this.pollIntervalMs = opts.pollIntervalMs ?? 50
   }
 
   async start(): Promise<void> {
@@ -38,7 +44,7 @@ export class Sequencer
       if (!this.destroyed && !this.polling) {
         this.pollDb()
       }
-    }, 50)
+    }, this.pollIntervalMs)
   }
 
   async curr(): Promise<PlcSeqEntry | null> {

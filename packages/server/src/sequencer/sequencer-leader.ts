@@ -5,12 +5,18 @@ import { PLC_SEQ_SEQUENCE } from '../db/types'
 
 const SEQUENCER_LEADER_ID = 1100
 
+export type SequencerLeaderOptions = {
+  pollIntervalMs?: number
+}
+
 export class SequencerLeader {
   leader: Leader
   destroyed = false
+  pollIntervalMs: number
 
-  constructor(public db: Database) {
+  constructor(public db: Database, opts: SequencerLeaderOptions = {}) {
     this.leader = new Leader(SEQUENCER_LEADER_ID, db)
+    this.pollIntervalMs = opts.pollIntervalMs ?? 50
   }
 
   async run(): Promise<{ ran: boolean }> {
@@ -18,7 +24,7 @@ export class SequencerLeader {
       // Poll frequently
       while (!(signal.aborted || this.destroyed)) {
         await this.sequenceOutgoing()
-        await wait(50)
+        await wait(this.pollIntervalMs)
       }
     })
   }
