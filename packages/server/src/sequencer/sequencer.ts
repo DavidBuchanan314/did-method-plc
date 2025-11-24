@@ -9,6 +9,7 @@ export interface SequencerEmitter {
   off(event: 'events', listener: (evts: SeqEvt[]) => void): this
   emit(event: 'events', evts: SeqEvt[]): boolean
   removeAllListeners(event?: string): this
+  setMaxListeners(n: number): this
 }
 
 export class Sequencer
@@ -22,6 +23,8 @@ export class Sequencer
 
   constructor(public db: Database) {
     super()
+    // note: this does not err when surpassed, just prints a warning to stderr
+    this.setMaxListeners(100)
   }
 
   async start(): Promise<void> {
