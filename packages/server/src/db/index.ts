@@ -232,6 +232,7 @@ export class Database implements PlcDatabase {
       .selectFrom('operations')
       .selectAll()
       .orderBy('createdAt', 'asc')
+      .orderBy(sql`cid COLLATE "C"`, 'asc')
       .limit(count)
     if (after) {
       builder = builder.where('createdAt', '>', after)
