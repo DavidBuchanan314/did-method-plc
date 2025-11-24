@@ -91,9 +91,8 @@ export const createRouter = (ctx: AppContext): express.Router => {
             if (ws.readyState !== WebSocket.OPEN) {
               break
             }
-            // Send event as JSON, in its own websocket message
-            // NOTE: appended newline exists for convenience, it is NOT a message delimiter
-            ws.send(JSON.stringify(evt) + '\n')
+            // Note: each event is sent in a separate websocket message
+            ws.send(JSON.stringify(evt))
           }
         } catch (err) {
           if (!abortController.signal.aborted) {
