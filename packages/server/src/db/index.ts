@@ -227,7 +227,11 @@ export class Database implements PlcDatabase {
     return res?.operation ?? null
   }
 
-  async exportOps(count: number, after?: Date): Promise<plc.ExportedOp[]> {
+  async exportOps(
+    count: number,
+    after?: Date,
+    afterCid?: string,
+  ): Promise<plc.ExportedOp[]> {
     let builder = this.db
       .selectFrom('operations')
       .selectAll()
@@ -235,7 +239,19 @@ export class Database implements PlcDatabase {
       .orderBy(sql`cid COLLATE "C"`, 'asc')
       .limit(count)
     if (after) {
-      builder = builder.where('createdAt', '>', after)
+      if (afterCid) {
+        builder = builder.where(
+          sql`(createdAt, cid COLLATE "C")`,
+          '>',
+          sql`(${after}, ${afterCid})`,
+        )
+      } else {
+        builder = builder.where('createdAt', '>', after)
+      }
+    } else {
+      if (afterCid) {
+        throw new ServerError(400, 'afterCid cannot be used without after')
+      }
     }
     const res = await builder.execute()
     return res.map((row) => ({
