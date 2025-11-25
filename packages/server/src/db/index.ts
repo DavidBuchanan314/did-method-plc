@@ -241,7 +241,7 @@ export class Database implements PlcDatabase {
     if (after) {
       if (afterCid) {
         builder = builder.where(
-          sql`(createdAt, cid COLLATE "C")`,
+          sql`("createdAt", cid COLLATE "C")`,
           '>',
           sql`(${after}, ${afterCid})`,
         )
