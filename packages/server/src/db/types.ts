@@ -15,7 +15,11 @@ export interface PlcDatabase {
     includeNull?: boolean,
   ): Promise<plc.IndexedOperation[]>
   lastOpForDid(did: string): Promise<plc.CompatibleOpOrTombstone | null>
-  exportOps(count: number, after?: Date, afterCid?: string): Promise<plc.ExportedOp[]>
+  exportOps(
+    count: number,
+    after?: Date,
+    afterCid?: string,
+  ): Promise<plc.ExportedOp[]>
   removeInvalidOps(
     did: string,
     cid: string,

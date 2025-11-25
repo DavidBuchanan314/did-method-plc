@@ -43,6 +43,18 @@ export const createRouter = (ctx: AppContext): express.Router => {
       afterCid = cidPart
     }
     const ops = await ctx.db.exportOps(count, after, afterCid)
+
+    // Set Link header for pagination if there might be more results
+    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Link#pagination_through_links
+    if (ops.length === count) {
+      const lastOp = ops[ops.length - 1]
+      const nextCursor = `${lastOp.createdAt}_${lastOp.cid}`
+      const nextUrl = `/export?after=${encodeURIComponent(
+        nextCursor,
+      )}&count=${count}`
+      res.setHeader('Link', `<${nextUrl}>; rel="next"`)
+    }
+
     res.setHeader('content-type', 'application/jsonlines')
     res.status(200)
     for (let i = 0; i < ops.length; i++) {
