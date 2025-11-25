@@ -2,7 +2,7 @@ import axios, { AxiosError } from 'axios'
 import { P256Keypair } from '@atproto/crypto'
 import * as plc from '@did-plc/lib'
 import { CloseFn, runTestServer, TEST_ADMIN_SECRET } from './_util'
-import { check } from '@atproto/common'
+import { check, cidForCbor } from '@atproto/common'
 import { AppContext, Database } from '../src'
 import { didForCreateOp, PlcClientError } from '@did-plc/lib'
 import exp from 'constants'
@@ -283,10 +283,67 @@ describe('PLC server', () => {
     await expect(promise2).rejects.toThrow(PlcClientError)
   })
 
+  it('handles same-timestamp operations with CID tie-breaking', async () => {
+    // Create 5 operations with EXACTLY the same timestamp
+    const timestamp = new Date()
+    const insertedOps: Array<{ did: string; cid: string }> = []
+
+    // Insert directly into database with same timestamp for all
+    for (let i = 0; i < 5; i++) {
+      const result = await plc.createOp({
+        signingKey: rotationKey1.did(),
+        rotationKeys: [rotationKey1.did()],
+        handle: `tiebreak${i}.example.com`,
+        pds: 'https://pds.example.com',
+        signer: rotationKey1,
+      })
+
+      const cid = await cidForCbor(result.op)
+
+      await db.db.transaction().execute(async (tx) => {
+        await tx.insertInto('dids').values({ did: result.did }).execute()
+        await tx
+          .insertInto('operations')
+          .values({
+            did: result.did,
+            operation: result.op,
+            cid: cid.toString(),
+            nullified: false,
+            createdAt: timestamp,
+          })
+          .execute()
+      })
+
+      insertedOps.push({ did: result.did, cid: cid.toString() })
+    }
+
+    // Export and isolate the ops we just inserted
+    const allOps = await client.export()
+    const testOps = allOps.filter((op) =>
+      insertedOps.some((inserted) => inserted.did === op.did),
+    )
+    expect(testOps.length).toBe(5)
+
+    // Double-check the timestamps are equal
+    const timestamps = testOps.map((op) => op.createdAt)
+    expect(new Set(timestamps).size).toBe(1)
+    expect(timestamps[0]).toBe(timestamp.toISOString())
+
+    // Verify that the ops were returned in CID-sorted order
+    const cids = testOps.map((op) => op.cid)
+    const sortedCids = [...cids].sort()
+    expect(cids).toEqual(sortedCids)
+
+    // Test pagination from midway through the group
+    const after = testOps[1].createdAt + '_' + testOps[1].cid
+    const partialOps = await client.export(after, 3)
+    expect(partialOps).toEqual(testOps.slice(2))
+  })
+
   it('exports the data set', async () => {
     const data = await client.export()
     expect(data.every((row) => check.is(row, plc.def.exportedOp))).toBeTruthy()
-    expect(data.length).toEqual(32)
+    expect(data.length).toEqual(37)
     for (let i = 1; i < data.length; i++) {
       expect(data[i].createdAt >= data[i - 1].createdAt).toBeTruthy()
     }
