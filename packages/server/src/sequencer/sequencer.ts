@@ -1,8 +1,7 @@
 import { EventEmitter } from 'events'
 import Database from '../db'
-import { PlcSeqEntry } from '../db/types'
-import { PlcEvent, EventType, SeqEvt } from './events'
-import { sql } from 'kysely'
+import { OperationsTableEntry } from '../db/types'
+import { SeqEvt } from './events'
 
 export interface SequencerEmitter {
   on(event: 'events', listener: (evts: SeqEvt[]) => void): this
@@ -47,9 +46,9 @@ export class Sequencer
     }, this.pollIntervalMs)
   }
 
-  async curr(): Promise<PlcSeqEntry | null> {
+  async curr(): Promise<OperationsTableEntry | null> {
     const result = await this.db.db
-      .selectFrom('plc_seq')
+      .selectFrom('operations')
       .selectAll()
       .where('seq', 'is not', null)
       .orderBy('seq', 'desc')
@@ -58,9 +57,9 @@ export class Sequencer
     return result ?? null
   }
 
-  async next(cursor: number): Promise<PlcSeqEntry | null> {
+  async next(cursor: number): Promise<OperationsTableEntry | null> {
     const result = await this.db.db
-      .selectFrom('plc_seq')
+      .selectFrom('operations')
       .selectAll()
       .where('seq', 'is not', null)
       .where('seq', '>', cursor)
@@ -77,10 +76,9 @@ export class Sequencer
     eventTypes?: string[]
   }): Promise<SeqEvt[]> {
     let builder = this.db.db
-      .selectFrom('plc_seq')
+      .selectFrom('operations')
       .selectAll()
       .where('seq', 'is not', null)
-      .where('invalidated', '=', 0)
       .orderBy('seq', 'asc')
 
     if (opts.earliestSeq !== undefined) {
@@ -89,27 +87,20 @@ export class Sequencer
     if (opts.latestSeq !== undefined) {
       builder = builder.where('seq', '<=', opts.latestSeq)
     }
-    if (opts.eventTypes !== undefined && opts.eventTypes.length > 0) {
-      if (opts.eventTypes.length === 1) {
-        builder = builder.where(sql`event->>'$type'`, '=', opts.eventTypes[0])
-      } else {
-        builder = builder.where(sql`event->>'$type'`, 'in', opts.eventTypes)
-      }
-    }
     if (opts.limit !== undefined) {
       builder = builder.limit(opts.limit)
     }
 
     const rows = await builder.execute()
 
-    return rows
-      .filter((row) => row.seq !== null && row.sequencedAt !== null)
-      .map((row) => ({
-        seq: row.seq as number,
-        sequencedAt: row.sequencedAt as Date,
-        type: row.type as EventType,
-        event: row.event as PlcEvent,
-      }))
+    return rows.map((row) => ({
+      seq: row.seq as number,
+      type: 'indexed_op',
+      did: row.did,
+      operation: row.operation,
+      cid: row.cid,
+      createdAt: row.createdAt.toISOString(),
+    }))
   }
 
   async pollDb(): Promise<void> {

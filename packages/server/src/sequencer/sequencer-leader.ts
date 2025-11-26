@@ -32,25 +32,27 @@ export class SequencerLeader {
   async sequenceOutgoing(): Promise<void> {
     // Assign seq numbers to all pending events in insertion order
     await this.db.db
-      .updateTable('plc_seq')
+      .updateTable('operations')
       .from((qb) =>
         qb
-          .selectFrom('plc_seq')
+          .selectFrom('operations')
           .select([
-            'id as update_id',
+            'did as update_did',
+            'cid as update_cid',
             sql<number>`nextval(${sql.literal(PLC_SEQ_SEQUENCE)})`.as(
               'update_seq',
             ),
           ])
           .where('seq', 'is', null)
-          .orderBy('id', 'asc')
+          .orderBy('createdAt', 'asc') // XXX: need index for this?
+          .limit(1000) // Prevent too much getting sequenced in one go - maybe needs tweaking?
           .as('update'),
       )
       .set({
         seq: sql`update_seq::bigint`,
-        sequencedAt: sql`now()`,
       })
-      .whereRef('id', '=', 'update_id')
+      .whereRef('did', '=', 'update_did')
+      .whereRef('cid', '=', 'update_cid')
       .execute()
   }
 

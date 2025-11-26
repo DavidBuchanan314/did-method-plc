@@ -57,8 +57,8 @@ describe('sequencer', () => {
     const start = Date.now()
     while (Date.now() - start < maxWait) {
       const unsequenced = await db.db
-        .selectFrom('plc_seq')
-        .select('id')
+        .selectFrom('operations')
+        .select('did')
         .where('seq', 'is', null)
         .executeTakeFirst()
       if (!unsequenced) {
@@ -111,21 +111,21 @@ describe('sequencer', () => {
   // Load events directly from the database
   const loadFromDb = async (afterSeq: number): Promise<SeqEvt[]> => {
     const rows = await db.db
-      .selectFrom('plc_seq')
+      .selectFrom('operations')
       .selectAll()
       .where('seq', 'is not', null)
       .where('seq', '>', afterSeq)
       .orderBy('seq', 'asc')
       .execute()
 
-    return rows
-      .filter((row) => row.seq !== null && row.sequencedAt !== null)
-      .map((row) => ({
-        seq: row.seq as number,
-        sequencedAt: row.sequencedAt as Date,
-        type: row.type as 'indexed_op',
-        event: row.event as any,
-      }))
+    return rows.map((row) => ({
+      seq: row.seq as number,
+      type: 'indexed_op',
+      did: row.did,
+      operation: row.operation,
+      cid: row.cid,
+      createdAt: row.createdAt.toISOString(),
+    }))
   }
 
   // Check if outbox is caught up with sequencer
@@ -133,8 +133,8 @@ describe('sequencer', () => {
     return async () => {
       // First check if all events are sequenced
       const unsequenced = await db.db
-        .selectFrom('plc_seq')
-        .select('id')
+        .selectFrom('operations')
+        .select('did')
         .where('seq', 'is', null)
         .executeTakeFirst()
       if (unsequenced) return false
@@ -159,8 +159,7 @@ describe('sequencer', () => {
     it('fetches current event', async () => {
       const curr = await sequencer.curr()
       expect(curr).not.toBeNull()
-      expect(curr?.type).toBe('indexed_op')
-      expect(curr?.event).toBeDefined()
+      expect(curr?.operation).toBeInstanceOf(Object)
     })
 
     it('fetches next event after cursor', async () => {
@@ -242,16 +241,13 @@ describe('sequencer', () => {
       // Insert an event without sequence number
       await db.db.transaction().execute(async (tx) => {
         await tx
-          .insertInto('plc_seq')
+          .insertInto('operations')
           .values({
-            type: 'indexed_op',
-            event: {
-              did: 'did:plc:test123',
-              operation: { type: 'plc_tombstone', prev: 'abc' },
-              cid: 'bafytest',
-              createdAt: new Date().toISOString(),
-            },
-            invalidated: 0,
+            did: 'did:plc:test123',
+            operation: { type: 'plc_tombstone', prev: 'abc', sig: 'blah' },
+            cid: 'bafytest',
+            createdAt: new Date(),
+            nullified: false,
           })
           .execute()
       })
@@ -263,7 +259,6 @@ describe('sequencer', () => {
       const events = await sequencer.requestSeqRange({})
       const lastEvent = events[events.length - 1]
       expect(lastEvent.seq).toBeGreaterThan(0)
-      expect(lastEvent.sequencedAt).toBeDefined()
     })
 
     it('maintains insertion order when assigning sequences', async () => {
@@ -582,8 +577,8 @@ describe('/export/stream endpoint', () => {
     const start = Date.now()
     while (Date.now() - start < maxWait) {
       const unsequenced = await db.db
-        .selectFrom('plc_seq')
-        .select('id')
+        .selectFrom('operations')
+        .select('did')
         .where('seq', 'is', null)
         .executeTakeFirst()
       if (!unsequenced) {
@@ -633,8 +628,8 @@ describe('/export/stream endpoint', () => {
     expect(receivedEvents.length).toBeGreaterThan(0)
     expect(receivedEvents[0].seq).toBeDefined()
     expect(receivedEvents[0].type).toBe('indexed_op')
-    expect(receivedEvents[0].event).toBeDefined()
-    expect(receivedEvents[0].event.did).toMatch(/^did:plc:/)
+    expect(receivedEvents[0].operation).toBeDefined()
+    expect(receivedEvents[0].did).toMatch(/^did:plc:/)
   })
 
   it('backfills from cursor', async () => {
@@ -645,7 +640,7 @@ describe('/export/stream endpoint', () => {
 
     // Get all events to find a cursor
     const allEvents = await db.db
-      .selectFrom('plc_seq')
+      .selectFrom('operations')
       .selectAll()
       .where('seq', 'is not', null)
       .orderBy('seq', 'asc')

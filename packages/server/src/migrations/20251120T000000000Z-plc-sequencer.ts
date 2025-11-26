@@ -4,27 +4,22 @@ export async function up(db: Kysely<any>): Promise<void> {
   // Create sequence for assigning sequence numbers
   await sql`CREATE SEQUENCE plc_seq_sequence`.execute(db)
 
-  // Create plc_seq table
-  await db.schema
-    .createTable('plc_seq')
-    .addColumn('id', 'bigserial', (col) => col.primaryKey())
-    .addColumn('seq', 'bigint')
-    .addColumn('type', 'varchar', (col) => col.notNull())
-    .addColumn('event', 'jsonb', (col) => col.notNull())
-    .addColumn('invalidated', 'integer', (col) => col.notNull().defaultTo(0))
-    .addColumn('sequencedAt', 'timestamptz')
-    .execute()
+  // Add seq column (nullable)
+  await db.schema.alterTable('operations').addColumn('seq', 'bigint').execute()
+  // Equivalent: ALTER TABLE operations ADD COLUMN seq bigint;
+  // Note: This should be a metadata-only operation, and will not require a full rewrite of the table
 
-  // Create indexes
+  // Equivalent: CREATE INDEX operations_seq_idx ON operations (seq);
+  // Note: May want to CREATE INDEX CONCURRENTLY for prod?
   await db.schema
-    .createIndex('plc_seq_seq_idx')
-    .on('plc_seq')
-    .column('seq')
+    .createIndex('operations_seq_idx')
+    .on('operations')
+    .columns(['seq'])
     .execute()
 }
 
 export async function down(db: Kysely<any>): Promise<void> {
-  await db.schema.dropIndex('plc_seq_seq_idx').execute()
-  await db.schema.dropTable('plc_seq').execute()
+  await db.schema.dropIndex('operations_seq_idx').execute()
+  await db.schema.alterTable('operations').dropColumn('seq').execute()
   await sql`DROP SEQUENCE plc_seq_sequence`.execute(db)
 }
