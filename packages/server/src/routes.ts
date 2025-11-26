@@ -1,10 +1,12 @@
 import { CID } from 'multiformats/cid'
 import express from 'express'
+import { WebSocketServer, WebSocket } from 'ws'
 import * as plc from '@did-plc/lib'
 import { ServerError } from './error'
 import { AppContext } from './context'
 import { assertValidIncomingOp } from './constraints'
 import { timingSafeStringEqual } from './util'
+import { Outbox } from './sequencer'
 
 export const createRouter = (ctx: AppContext): express.Router => {
   const router = express.Router()
@@ -44,6 +46,65 @@ export const createRouter = (ctx: AppContext): express.Router => {
       res.write(line)
     }
     res.end()
+  })
+
+  // TODO: init elsewhere?
+  const wss = new WebSocketServer({
+    noServer: true,
+  })
+
+  // Stream sequenced operations over WebSocket
+  router.get('/export/stream', async function (req, res) {
+    if (!req.headers.upgrade) {
+      throw new ServerError(426, 'upgrade required')
+    }
+
+    // Parse cursor parameter for backfill
+    const cursor = req.query.cursor ? parseInt(req.query.cursor, 10) : undefined
+    if (cursor !== undefined && (isNaN(cursor) || cursor < 0)) {
+      throw new ServerError(400, 'Invalid cursor parameter')
+    }
+
+    req.ws.handled = true
+    wss.handleUpgrade(
+      req,
+      req.ws.socket,
+      req.ws.head,
+      async function (ws: WebSocket) {
+        const abortController = new AbortController()
+        const outbox = new Outbox(ctx.sequencer)
+
+        ws.on('close', () => {
+          abortController.abort()
+        })
+
+        ws.on('error', (err) => {
+          req.log.error({ err }, 'websocket error')
+          abortController.abort()
+        })
+
+        try {
+          for await (const evt of outbox.events(
+            cursor,
+            abortController.signal,
+          )) {
+            if (ws.readyState !== WebSocket.OPEN) {
+              break
+            }
+            // Note: each event is sent in a separate websocket message
+            ws.send(JSON.stringify(evt))
+          }
+        } catch (err) {
+          if (!abortController.signal.aborted) {
+            req.log.error({ err }, 'error streaming events')
+          }
+        } finally {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.close()
+          }
+        }
+      },
+    )
   })
 
   // Get data for a DID document
